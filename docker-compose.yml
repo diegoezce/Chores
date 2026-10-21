@@ -2,8 +2,8 @@ services:
   chores:
     build: .
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       PARENT_PIN: ${PARENT_PIN:?definí PARENT_PIN en el archivo .env}
       KIDS_DAYS_BACK: 14      # cuántos días atrás pueden marcar ellas
@@ -13,3 +13,12 @@ services:
       # Base de datos + backups. Sincronizá data/backups a otro lugar (nube/otro disco).
       - ./data:/data
       - ./tareas.yaml:/srv/tareas.yaml:ro
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml --no-autoupdate run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - chores

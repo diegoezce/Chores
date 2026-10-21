@@ -110,12 +110,15 @@ def _estado_dia(conn, cid: str, dia: date) -> dict:
     }
 
 
+EMOJIS_VALIDOS = {"🦄","🦊","🦋","🐱","🐶","🐼","🦁","🐸","🌸","⭐","🌈","🦩"}
+
 def _resumen_chica(conn, cid: str) -> dict:
     h = hoy()
     c = cfg.chicas[cid]
     lunes = h - timedelta(days=h.weekday())
+    emoji = db.get_meta(conn, f"emoji:{cid}") or c.emoji
     return {
-        "id": cid, "nombre": c.nombre, "emoji": c.emoji, "color": c.color, "fondo": c.fondo,
+        "id": cid, "nombre": c.nombre, "emoji": emoji, "color": c.color, "fondo": c.fondo,
         "puntos": points.total(conn, cid),
         "puntos_semana": points.puntos_desde(conn, cid, lunes),
         "racha": points.racha(conn, cfg, cid, h),
@@ -164,6 +167,16 @@ def _marcar(conn, cid, tarea, fecha, hecho, quien, limite):
         raise HTTPException(400, e.mensaje)
     dia = _parse_dia(fecha)
     return {**r, "dia": _estado_dia(conn, cid, dia), "resumen": _resumen_chica(conn, cid)}
+
+
+@app.put("/api/chicas/{cid}/emoji")
+def cambiar_emoji(cid: str, body: dict = Body(...), conn=Depends(conn_dep)):
+    _chica_o_404(cid)
+    emoji = str(body.get("emoji", ""))
+    if emoji not in EMOJIS_VALIDOS:
+        raise HTTPException(400, "Emoji no válido")
+    db.set_meta(conn, f"emoji:{cid}", emoji)
+    return {"ok": True, "emoji": emoji}
 
 
 @app.put("/api/chicas/{cid}/tareas/{tarea}")

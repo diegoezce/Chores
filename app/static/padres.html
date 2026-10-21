@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tareas · Padres</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=3">
 </head>
 <body>
 <div id="app" class="p-wrap"><div class="loading">Cargando…</div></div>
@@ -28,15 +28,37 @@ function toast(m, err) { const t = $("#toast"); t.textContent = m; t.className =
 function fl(iso) { const [y, m, d] = iso.split("-"); return `${d}/${m}`; }
 
 function loginView(configurado) {
-  $("#app").innerHTML = `<div class="login"><h1>🔒 Padres</h1>
-    <p class="lead">${configurado ? "Ingresá el PIN" : "Falta definir PARENT_PIN en el servidor"}</p>
-    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" ${configurado ? "" : "disabled"}>
-    <button class="primary" id="go" ${configurado ? "" : "disabled"}>Entrar</button><p><a href="/">← Volver</a></p></div>`;
-  const go = async () => {
-    try { await api("/api/padres/login", { method: "POST", body: JSON.stringify({ pin: $("#pin").value }) }); main(); }
-    catch (e) { toast(e.message, true); }
+  let pin = "";
+  const render = () => {
+    const dots = "●".repeat(pin.length) || " ";
+    $("#pin-display").textContent = dots || "·";
+    $("#go").disabled = !configurado || pin.length === 0;
   };
-  $("#go").onclick = go; $("#pin").onkeydown = (e) => e.key === "Enter" && go();
+  $("#app").innerHTML = `<div class="login">
+    <h1>🔒 Padres</h1>
+    <p class="lead">${configurado ? "Ingresá el PIN" : "Falta definir PARENT_PIN en el servidor"}</p>
+    <div class="pin-display" id="pin-display">·</div>
+    <div class="pin-pad">
+      ${[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map(k => k === ""
+        ? `<span></span>`
+        : `<button class="pin-key" data-k="${k}">${k}</button>`
+      ).join("")}
+    </div>
+    <button class="primary" id="go" disabled>Entrar</button>
+    <p><a href="/">← Volver</a></p>
+  </div>`;
+  const go = async () => {
+    try { await api("/api/padres/login", { method: "POST", body: JSON.stringify({ pin }) }); main(); }
+    catch (e) { toast(e.message, true); pin = ""; render(); }
+  };
+  document.querySelectorAll(".pin-key").forEach(b => {
+    b.onclick = () => {
+      if (b.dataset.k === "⌫") { pin = pin.slice(0, -1); }
+      else if (pin.length < 20) { pin += b.dataset.k; }
+      render();
+    };
+  });
+  $("#go").onclick = go;
 }
 
 async function main() {

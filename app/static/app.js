@@ -1,6 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const EMOJIS = ["🦄","🦊","🦋","🐱","🐶","🐼","🦁","🐸","🌸","⭐","🌈","🦩"];
 const FRASES = ["¡Genia! 🌟", "¡Muy bien! 👏", "¡Eso es! 💪", "¡Qué crack! 🚀", "¡Bravo! 🎉", "¡Sos una campeona! 🏆", "¡Una menos! ✨", "¡Increíble! 🌈", "¡Así se hace! 🔥"];
 const FRASES_DIA = ["¡Terminaste todo el día!", "¡Día completo, qué orgullo!", "¡Misión cumplida!"];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -73,7 +74,8 @@ function render() {
   const circ = 2 * Math.PI * 34;
   const week = d.semana.map((w) => {
     const cls = w.futuro ? "future" : !w.hay_tareas ? "free" : w.completo ? "done" : w.avance > 0 ? "part" : "";
-    const inner = w.completo ? "✓" : !w.hay_tareas ? "·" : "";
+    const dayNum = parseInt(w.fecha.slice(8), 10);
+    const inner = w.completo ? "✓" : dayNum;
     return `<div class="wd ${cls} ${w.fecha === sel ? "sel" : ""}">${w.dia_corto}<button data-f="${w.fecha}" ${w.futuro ? "disabled" : ""} style="--p:${Math.round(w.avance * 100)}">${inner}</button></div>`;
   }).join("");
 
@@ -92,7 +94,7 @@ function render() {
     <div class="kid-top">
       <div class="bar">
         <button class="icon-btn" id="back" aria-label="Volver">‹</button>
-        <div class="who"><span>${d.emoji}</span><span>${esc(d.nombre)}</span></div>
+        <div class="who"><button class="emo-btn" id="emo-pick" title="Cambiar icono">${d.emoji}</button><span>${esc(d.nombre)}</span></div>
         <button class="icon-btn" id="snd" aria-label="Sonido">${Sound.muted ? "🔇" : "🔊"}</button>
       </div>
       <div class="score">
@@ -124,6 +126,7 @@ function render() {
   st.shownPts = d.puntos;
   $("#back").onclick = () => (location.hash = "#/");
   $("#snd").onclick = (e) => { e.currentTarget.textContent = Sound.toggle() ? "🔇" : "🔊"; };
+  $("#emo-pick").onclick = () => abrirPickerEmoji();
   $("#prev").onclick = () => (location.hash = `#/${st.kid}/${sumarDias(sel, -1)}`);
   $("#next").onclick = () => { const n = sumarDias(sel, 1); location.hash = n >= d.hoy ? `#/${st.kid}` : `#/${st.kid}/${n}`; };
   const t = $("#today"); if (t) t.onclick = () => (location.hash = `#/${st.kid}`);
@@ -172,6 +175,32 @@ async function alternar(btn, ev) {
     toast(e.message, true);
     render();
   } finally { st.busy.delete(id); }
+}
+
+/* ---------------- Emoji picker ---------------- */
+function abrirPickerEmoji() {
+  const overlay = document.createElement("div");
+  overlay.className = "emo-overlay";
+  overlay.innerHTML = `
+    <div class="emo-panel">
+      <p>Elegí tu icono</p>
+      <div class="emo-grid">${EMOJIS.map((e) => `<button class="emo-opt${e === st.data.emoji ? " sel" : ""}" data-e="${e}">${e}</button>`).join("")}</div>
+      <button class="emo-cancel">Cancelar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".emo-cancel").onclick = () => overlay.remove();
+  overlay.onclick = (ev) => { if (ev.target === overlay) overlay.remove(); };
+  overlay.querySelectorAll(".emo-opt").forEach((btn) => {
+    btn.onclick = async () => {
+      const e = btn.dataset.e;
+      overlay.remove();
+      try {
+        await api(`/api/chicas/${st.kid}/emoji`, { method: "PUT", body: JSON.stringify({ emoji: e }) });
+        st.data = { ...st.data, emoji: e };
+        render();
+      } catch (err) { toast(err.message, true); }
+    };
+  });
 }
 
 /* ---------------- Router ---------------- */
