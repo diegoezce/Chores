@@ -1,0 +1,47 @@
+# Tareas de la casa. Editá este archivo y reiniciá el contenedor.
+# Los puntos ya ganados NO cambian si editás las tareas (quedan guardados).
+# Domingo: libre, se hace todo entre todos.
+
+puntos_por_tarea: 10
+puntos_dia_completo: 20
+
+chicas:
+  pili:  { nombre: Pili,  emoji: "🦄", color: "#c2185b", fondo: "#fce4f1" }
+  numi:  { nombre: Numi,  emoji: "🦊", color: "#c2551a", fondo: "#fde8d8" }
+  vicky: { nombre: Vicky, emoji: "🦋", color: "#5b21b6", fondo: "#ece9ff" }
+
+paquetes:
+  A:
+    - Poner la mesa
+    - Guardar la ropa limpia
+    - Barrer/aspirar el piso
+    - Ordenar la cocina
+  B:
+    - Ordenar el living
+    - Alimentar a Moana
+    - Poner el lavavajillas
+  C:
+    - Levantar la mesa
+    - Regar las plantas
+    - Sacar el lavavajillas
+    - Ordenar el playroom
+
+# Cada día: qué paquete le toca a cada una (o una lista explícita).
+semana:
+  lunes:     { pili: A, numi: B, vicky: C }
+  martes:    { pili: B, numi: C, vicky: A }
+  miercoles: { pili: C, numi: A, vicky: B }
+  jueves:    { pili: A, numi: B, vicky: C }
+  viernes:   { pili: B, numi: C, vicky: A }
+  sabado:
+    pili:
+      - Levantar la mesa
+      - Regar las plantas
+      - Sacar el lavavajillas
+    numi: A
+    vicky:
+      - Ordenar el living
+      - Alimentar a Moana
+      - Poner el lavavajillas
+      - Ordenar el playroom
+  domingo: {}

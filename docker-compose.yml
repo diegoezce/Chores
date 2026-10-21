@@ -1,0 +1,15 @@
+services:
+  chores:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PARENT_PIN: ${PARENT_PIN:?definí PARENT_PIN en el archivo .env}
+      KIDS_DAYS_BACK: 14      # cuántos días atrás pueden marcar ellas
+      BACKUP_EVERY_HOURS: 24
+      BACKUP_KEEP: 30
+    volumes:
+      # Base de datos + backups. Sincronizá data/backups a otro lugar (nube/otro disco).
+      - ./data:/data
+      - ./tareas.yaml:/srv/tareas.yaml:ro

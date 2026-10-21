@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tareas · Padres</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app" class="p-wrap"><div class="loading">Cargando…</div></div>
+<div class="toast" id="toast"></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const NOMBRES = {};
+let editando = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  let body = null; try { body = await r.json(); } catch (e) {}
+  if (r.status === 401) { const e = new Error((body && body.detail) || "No autorizado"); e.auth = true; throw e; }
+  if (!r.ok) throw new Error((body && body.detail) || "Error");
+  return body;
+}
+let tt;
+function toast(m, err) { const t = $("#toast"); t.textContent = m; t.className = "toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => (t.className = "toast"), 2200); }
+function fl(iso) { const [y, m, d] = iso.split("-"); return `${d}/${m}`; }
+
+function loginView(configurado) {
+  $("#app").innerHTML = `<div class="login"><h1>🔒 Padres</h1>
+    <p class="lead">${configurado ? "Ingresá el PIN" : "Falta definir PARENT_PIN en el servidor"}</p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" ${configurado ? "" : "disabled"}>
+    <button class="primary" id="go" ${configurado ? "" : "disabled"}>Entrar</button><p><a href="/">← Volver</a></p></div>`;
+  const go = async () => {
+    try { await api("/api/padres/login", { method: "POST", body: JSON.stringify({ pin: $("#pin").value }) }); main(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $("#go").onclick = go; $("#pin").onkeydown = (e) => e.key === "Enter" && go();
+}
+
+async function main() {
+  const s = await api("/api/padres/sesion");
+  if (!s.ok) return loginView(s.configurado);
+  const r = await api("/api/padres/resumen");
+  r.chicas.forEach((c) => (NOMBRES[c.id] = c.nombre));
+  const hist = await api("/api/padres/historial?limite=40");
+  $("#app").innerHTML = `
+    <h1>Resumen de la semana</h1><p class="lead"><a href="/">← Volver a las chicas</a> · <a href="#" id="out">Salir</a></p>
+    ${r.chicas.map((c) => `
+      <div class="pcard" style="--c:${c.color};--bg:${c.fondo}">
+        <h3>${c.emoji} ${esc(c.nombre)}</h3>
+        <div class="stats">
+          <div class="stat"><b>${c.puntos}</b>puntos totales</div>
+          <div class="stat"><b>${c.puntos_semana}</b>esta semana</div>
+          <div class="stat"><b>${c.racha.actual}</b>racha 🔥</div>
+          <div class="stat"><b>${c.racha.mejor}</b>mejor racha</div>
+        </div>
+        <div class="days">${c.dias.map((d) => {
+          const cls = d.futuro ? "fut" : !d.total_tareas ? "libre" : d.completo ? "ok" : d.hechas ? "partial" : "";
+          return `<button class="${cls}" data-c="${c.id}" data-f="${d.fecha}">${d.dia_nombre.slice(0, 3)}<b>${d.total_tareas ? d.hechas + "/" + d.total_tareas : "—"}</b>${fl(d.fecha)}</button>`;
+        }).join("")}</div>
+      </div>`).join("")}
+    <div id="editor"></div>
+    <div class="editor"><h3>Corregir otro día</h3>
+      <div class="row"><select id="ec" class="secondary">${r.chicas.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select>
+      <input type="date" id="ef" max="${r.hoy}" value="${r.hoy}"><button class="secondary" id="eg">Abrir</button></div></div>
+    <div class="row"><button class="secondary" id="bk">💾 Hacer backup ahora</button><a class="secondary" href="/api/padres/exportar" style="text-decoration:none;color:inherit">⬇️ Exportar todo (JSON)</a></div>
+    <div class="editor"><h3>Últimos movimientos</h3><div class="hist">${hist.map((h) =>
+      `<div>${h.accion === "marcar" ? "✅" : "↩️"} <b>${esc(NOMBRES[h.chica] || h.chica)}</b> · ${esc(h.tarea_texto)} <small>(${fl(h.dia)}, ${h.quien === "padres" ? "corregido por padres" : "ella misma"}, ${h.cuando.replace("T", " ").slice(5, 16)} UTC)</small></div>`).join("") || "<small>Todavía no hay movimientos.</small>"}</div></div>`;
+  $("#out").onclick = async (e) => { e.preventDefault(); await api("/api/padres/logout", { method: "POST" }); main(); };
+  document.querySelectorAll(".days button").forEach((b) => (b.onclick = () => abrir(b.dataset.c, b.dataset.f)));
+  $("#eg").onclick = () => abrir($("#ec").value, $("#ef").value);
+  $("#bk").onclick = async () => { try { const x = await api("/api/padres/backup", { method: "POST" }); toast("Backup listo: " + x.archivo); } catch (e) { toast(e.message, true); } };
+  if (editando) abrir(editando.c, editando.f, true);
+}
+
+async function abrir(c, f, quieto) {
+  if (!f) return;
+  editando = { c, f };
+  const d = await api(`/api/padres/dia?cid=${c}&fecha=${f}`);
+  const ed = $("#editor");
+  ed.innerHTML = `<div class="editor"><h3>${esc(NOMBRES[c])} · ${d.dia_nombre} ${fl(f)} <small>(${d.puntos_dia} pts)</small></h3>
+    ${d.tareas.length ? d.tareas.map((t) => `<label class="erow"><input type="checkbox" data-t="${t.id}" ${t.hecha ? "checked" : ""}><span>${esc(t.texto)}</span></label>`).join("") : "<small>Día libre, sin tareas.</small>"}
+    ${d.completo ? "<p>🎉 Día completo (bonus incluido)</p>" : ""}</div>`;
+  ed.querySelectorAll("input[data-t]").forEach((i) => (i.onchange = async () => {
+    try { await api(`/api/padres/chicas/${c}/tareas/${i.dataset.t}`, { method: "PUT", body: JSON.stringify({ hecha: i.checked, fecha: f }) }); toast("Guardado ✅"); main(); }
+    catch (e) { toast(e.message, true); i.checked = !i.checked; }
+  }));
+  if (!quieto) ed.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+main().catch((e) => e.auth ? loginView(true) : ($("#app").textContent = e.message));
+</script>
+</body>
+</html>
