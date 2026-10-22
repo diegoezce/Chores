@@ -32,6 +32,19 @@ class Chica:
     fondo: str
 
 
+@dataclass(frozen=True)
+class Extra:
+    id: int
+    chica: str
+    tarea: Tarea
+    dias: tuple[int, ...]
+    desde: date
+    hasta: date | None
+
+    def aplica(self, dia: date) -> bool:
+        return dia.weekday() in self.dias and self.desde <= dia and (self.hasta is None or dia <= self.hasta)
+
+
 class Config:
     def __init__(self, data: dict):
         self.puntos_tarea = int(data.get("puntos_por_tarea", 10))
@@ -42,6 +55,7 @@ class Config:
         }
         paquetes = {k: [Tarea(slug(t), t) for t in v] for k, v in data["paquetes"].items()}
         self._semana: dict[str, dict[str, list[Tarea]]] = {}
+        self.extras: list[Extra] = []
         for dia in DIAS:
             plan = (data.get("semana") or {}).get(dia) or {}
             self._semana[dia] = {}
@@ -60,9 +74,29 @@ class Config:
                 self._semana[dia][cid] = tareas
 
     def tareas(self, chica: str, dia: date) -> list[Tarea]:
-        return self._semana[DIAS[dia.weekday()]].get(chica, [])
+        base = self._semana[DIAS[dia.weekday()]].get(chica, [])
+        return base + [e.tarea for e in self.extras if e.chica == chica and e.aplica(dia)]
+
+    def cargar_extras(self, conn) -> None:
+        self.extras = [
+            Extra(r["id"], r["chica"], Tarea(slug(r["texto"]), r["texto"]),
+                  tuple(int(x) for x in r["dias"].split(",")), date.fromisoformat(r["desde"]),
+                  date.fromisoformat(r["hasta"]) if r["hasta"] else None)
+            for r in conn.execute("SELECT * FROM tareas_extra ORDER BY id")
+        ]
+
+    def hay_conflicto(self, chica: str, tarea_id: str, dias: list[int]) -> bool:
+        """¿Ya existe esa tarea (de la config o agregada y vigente) en alguno de esos días?"""
+        for i in dias:
+            if any(t.id == tarea_id for t in self._semana[DIAS[i]].get(chica, [])):
+                return True
+        return any(e.chica == chica and e.hasta is None and e.tarea.id == tarea_id and set(e.dias) & set(dias)
+                   for e in self.extras)
 
     def texto_de(self, tarea_id: str) -> str:
+        for e in self.extras:
+            if e.tarea.id == tarea_id:
+                return e.tarea.texto
         for plan in self._semana.values():
             for tareas in plan.values():
                 for t in tareas:

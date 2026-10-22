@@ -15,6 +15,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const NOMBRES = {};
 let editando = null;
+const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
@@ -44,6 +45,7 @@ async function main() {
   if (!s.ok) return loginView(s.configurado);
   const r = await api("/api/padres/resumen");
   r.chicas.forEach((c) => (NOMBRES[c.id] = c.nombre));
+  const extras = await api("/api/padres/tareas");
   const hist = await api("/api/padres/historial?limite=40");
   $("#app").innerHTML = `
     <h1>Resumen de la semana</h1><p class="lead"><a href="/">← Volver a las chicas</a> · <a href="#" id="out">Salir</a></p>
@@ -62,6 +64,13 @@ async function main() {
         }).join("")}</div>
       </div>`).join("")}
     <div id="editor"></div>
+    <div class="editor"><h3>➕ Agregar tarea</h3>
+      <div class="row"><select id="nc" class="secondary">${r.chicas.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select>
+      <input id="nt" maxlength="80" placeholder="Ej: Sacar la basura"></div>
+      <div class="row">${DIAS.map((n, i) => `<label class="erow"><input type="checkbox" class="nd" value="${i}" ${i < 6 ? "checked" : ""}><span>${n}</span></label>`).join("")}</div>
+      <div class="row"><button class="primary" id="na">Agregar</button></div>
+      ${extras.length ? `<h3>Tareas agregadas</h3>${extras.map((e) => `<div class="erow"><span>${esc(NOMBRES[e.chica])} · ${esc(e.texto)} <small>(${e.dias.map((i) => DIAS[i]).join(" ")})</small></span> <button class="secondary" data-q="${e.id}">Quitar</button></div>`).join("")}` : ""}
+    </div>
     <div class="editor"><h3>Corregir otro día</h3>
       <div class="row"><select id="ec" class="secondary">${r.chicas.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select>
       <input type="date" id="ef" max="${r.hoy}" value="${r.hoy}"><button class="secondary" id="eg">Abrir</button></div></div>
@@ -70,6 +79,15 @@ async function main() {
       `<div>${h.accion === "marcar" ? "✅" : "↩️"} <b>${esc(NOMBRES[h.chica] || h.chica)}</b> · ${esc(h.tarea_texto)} <small>(${fl(h.dia)}, ${h.quien === "padres" ? "corregido por padres" : "ella misma"}, ${h.cuando.replace("T", " ").slice(5, 16)} UTC)</small></div>`).join("") || "<small>Todavía no hay movimientos.</small>"}</div></div>`;
   $("#out").onclick = async (e) => { e.preventDefault(); await api("/api/padres/logout", { method: "POST" }); main(); };
   document.querySelectorAll(".days button").forEach((b) => (b.onclick = () => abrir(b.dataset.c, b.dataset.f)));
+  $("#na").onclick = async () => {
+    const dias = [...document.querySelectorAll(".nd:checked")].map((i) => +i.value);
+    try { await api("/api/padres/tareas", { method: "POST", body: JSON.stringify({ chica: $("#nc").value, texto: $("#nt").value, dias }) }); toast("Tarea agregada ✅"); main(); }
+    catch (e) { toast(e.message, true); }
+  };
+  document.querySelectorAll("[data-q]").forEach((b) => (b.onclick = async () => {
+    if (!confirm("¿Quitar esta tarea desde hoy? Los puntos ya ganados se mantienen.")) return;
+    try { await api("/api/padres/tareas/" + b.dataset.q, { method: "DELETE" }); toast("Tarea quitada"); main(); } catch (e) { toast(e.message, true); }
+  }));
   $("#eg").onclick = () => abrir($("#ec").value, $("#ef").value);
   $("#bk").onclick = async () => { try { const x = await api("/api/padres/backup", { method: "POST" }); toast("Backup listo: " + x.archivo); } catch (e) { toast(e.message, true); } };
   if (editando) abrir(editando.c, editando.f, true);

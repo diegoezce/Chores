@@ -123,3 +123,32 @@ def test_los_datos_sobreviven_a_un_reinicio(client):
     put(client, "pili", "ordenar-el-living", True)
     with TestClient(main.app) as c2:  # otro arranque sobre el mismo archivo
         assert c2.get("/api/chicas/pili").json()["puntos"] == 10
+
+
+def test_padres_agregan_y_quitan_tareas_sin_tocar_el_pasado(client):
+    assert client.post("/api/padres/tareas", json={"chica": "pili", "texto": "X", "dias": [1]}).status_code == 401
+    client.post("/api/padres/login", json={"pin": "4321"})
+    # el lunes (pasado) Pili completa su día con las tareas originales
+    for t in ["poner-la-mesa", "guardar-la-ropa-limpia", "barrer-aspirar-el-piso", "ordenar-la-cocina"]:
+        put(client, "pili", t, True, fecha="2026-10-19")
+    assert client.get("/api/chicas/pili?fecha=2026-10-19").json()["dia"]["completo"]
+
+    r = client.post("/api/padres/tareas", json={"chica": "pili", "texto": "Sacar la basura", "dias": [0, 1]})
+    assert r.status_code == 200
+    tid = r.json()["id"]
+    assert client.get("/api/chicas/pili?fecha=2026-10-19").json()["dia"]["completo"]  # pasado intacto
+    hoy = client.get("/api/chicas/pili").json()["dia"]  # martes: aparece
+    assert "Sacar la basura" in [t["texto"] for t in hoy["tareas"]]
+    assert put(client, "pili", "sacar-la-basura", True).status_code == 200
+
+    assert client.post("/api/padres/tareas", json={"chica": "pili", "texto": "sacar la basura", "dias": [1]}).status_code == 409
+    assert client.post("/api/padres/tareas", json={"chica": "pili", "texto": "Poner la mesa", "dias": [0]}).status_code == 409
+    assert client.post("/api/padres/tareas", json={"chica": "pili", "texto": "", "dias": [1]}).status_code == 400
+    assert client.post("/api/padres/tareas", json={"chica": "pili", "texto": "Y", "dias": [9]}).status_code == 400
+    assert client.post("/api/padres/tareas", json={"chica": "nadie", "texto": "Y", "dias": [1]}).status_code == 404
+
+    assert client.delete(f"/api/padres/tareas/{tid}").status_code == 200
+    assert client.get("/api/padres/tareas").json() == []
+    assert client.get("/api/chicas/pili").json()["puntos"] == 70  # puntos ganados se mantienen
+    assert "Sacar la basura" not in [t["texto"] for t in client.get("/api/chicas/pili").json()["dia"]["tareas"]]
+    assert client.delete(f"/api/padres/tareas/{tid}").status_code == 404
