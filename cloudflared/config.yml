@@ -1,5 +1,5 @@
-tunnel: acf3c45c-4da9-40ea-a1c0-c26205665664
-credentials-file: /etc/cloudflared/acf3c45c-4da9-40ea-a1c0-c26205665664.json
+tunnel: ca865c6d-ba5c-4a3c-bc40-d73d17397cdb
+credentials-file: /etc/cloudflared/ca865c6d-ba5c-4a3c-bc40-d73d17397cdb.json
 
 ingress:
   - hostname: chores.sparkio.me
