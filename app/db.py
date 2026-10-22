@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS bonus (
     chica TEXT NOT NULL, dia TEXT NOT NULL, puntos INTEGER NOT NULL,
     PRIMARY KEY (chica, dia)
 );
+-- Tareas agregadas desde la vista de padres. `desde`/`hasta` acotan los días en que
+-- aplican, así agregar o quitar una tarea nunca cambia el pasado.
+CREATE TABLE IF NOT EXISTS tareas_extra (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, chica TEXT NOT NULL, texto TEXT NOT NULL,
+    dias TEXT NOT NULL, desde TEXT NOT NULL, hasta TEXT
+);
 -- Bitácora de todo lo que se marcó o desmarcó (solo se agrega, nunca se borra).
 CREATE TABLE IF NOT EXISTS eventos (
     id INTEGER PRIMARY KEY AUTOINCREMENT, cuando TEXT NOT NULL,

@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, points
 from .backup import hacer_backup, iniciar_backups_automaticos
-from .config import DIAS_LARGOS, cargar
+from .config import DIAS_LARGOS, cargar, slug
 
 STATIC = Path(__file__).parent / "static"
 TZ = ZoneInfo(os.environ.get("TZ", "America/Argentina/Buenos_Aires"))
@@ -70,6 +70,7 @@ async def lifespan(_app):
     conn = db.connect(DB_PATH)
     if db.get_meta(conn, "inicio") is None:
         db.set_meta(conn, "inicio", db.iso(hoy()))
+    cfg.cargar_extras(conn)
     conn.close()
     if os.environ.get("CHORES_NO_BACKUP") != "1":
         iniciar_backups_automaticos(DB_PATH, BACKUPS, float(os.environ.get("BACKUP_EVERY_HOURS", "24")),
@@ -234,6 +235,46 @@ def marcar_padres(cid: str, tarea: str, body: dict = Body(...), conn=Depends(con
     if "hecha" not in body or not isinstance(body["hecha"], bool):
         raise HTTPException(400, "Falta 'hecha' (true/false)")
     return _marcar(conn, cid, tarea, body.get("fecha"), body["hecha"], "padres", None)
+
+
+def _extra_json(e) -> dict:
+    return {"id": e.id, "chica": e.chica, "texto": e.tarea.texto, "dias": list(e.dias), "desde": db.iso(e.desde)}
+
+
+@app.get("/api/padres/tareas", dependencies=[Depends(requiere_padre)])
+def tareas_extra():
+    return [_extra_json(e) for e in cfg.extras if e.hasta is None]
+
+
+@app.post("/api/padres/tareas", dependencies=[Depends(requiere_padre)])
+def agregar_tarea(body: dict = Body(...), conn=Depends(conn_dep)):
+    cid = str(body.get("chica", ""))
+    _chica_o_404(cid)
+    texto = " ".join(str(body.get("texto", "")).split())
+    dias = body.get("dias")
+    if not texto or len(texto) > 80 or not slug(texto):
+        raise HTTPException(400, "Escribí el nombre de la tarea (hasta 80 letras)")
+    if (not isinstance(dias, list) or not dias or
+            not all(isinstance(i, int) and not isinstance(i, bool) and 0 <= i <= 6 for i in dias)):
+        raise HTTPException(400, "Elegí al menos un día")
+    dias = sorted(set(dias))
+    if cfg.hay_conflicto(cid, slug(texto), dias):
+        raise HTTPException(409, "Esa tarea ya existe en alguno de esos días")
+    conn.execute("INSERT INTO tareas_extra(chica, texto, dias, desde) VALUES(?,?,?,?)",
+                 (cid, texto, ",".join(map(str, dias)), db.iso(hoy())))
+    cfg.cargar_extras(conn)
+    return _extra_json(cfg.extras[-1])
+
+
+@app.delete("/api/padres/tareas/{tid}", dependencies=[Depends(requiere_padre)])
+def quitar_tarea(tid: int, conn=Depends(conn_dep)):
+    """Deja de aplicar desde hoy; lo ya hecho y los puntos ganados quedan intactos."""
+    cur = conn.execute("UPDATE tareas_extra SET hasta=? WHERE id=? AND hasta IS NULL",
+                       (db.iso(hoy() - timedelta(days=1)), tid))
+    if cur.rowcount == 0:
+        raise HTTPException(404, "Esa tarea no existe")
+    cfg.cargar_extras(conn)
+    return {"ok": True}
 
 
 @app.get("/api/padres/historial", dependencies=[Depends(requiere_padre)])
