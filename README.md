@@ -37,6 +37,14 @@ crontab -e
 # agregar (ajustá la ruta):
 * * * * * /ruta/a/chores/autodeploy.sh >> /tmp/autodeploy.log 2>&1
 ```
+En **Windows** usá `autodeploy.ps1` con el Programador de tareas (PowerShell como admin):
+```powershell
+$a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File C:\ruta\a\chores\autodeploy.ps1 >> C:\ruta\a\chores\autodeploy.log 2>&1"
+$t = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName "ChoresAutodeploy" -Action $a -Trigger $t
+```
+Docker Desktop tiene que estar abierto (activá "Start Docker Desktop when you sign in").
+
 Si el repo es privado, la mini PC necesita una deploy key o token para el `git fetch`.
 
 ## Backups
