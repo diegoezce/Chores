@@ -29,6 +29,16 @@ Queda en `http://<ip-de-la-mini-pc>:8000`. Para verlo desde afuera, sumá un tú
 Cloudflare apuntando a `http://localhost:8000`. Cambiar tareas: editá `tareas.yaml` y
 `docker compose restart`.
 
+### Actualizar solo al pushear
+`autodeploy.sh` baja los commits nuevos de `main` y reconstruye el contenedor (los datos
+viven en `./data`, no se pierden). En la mini PC:
+```bash
+crontab -e
+# agregar (ajustá la ruta):
+* * * * * /ruta/a/chores/autodeploy.sh >> /tmp/autodeploy.log 2>&1
+```
+Si el repo es privado, la mini PC necesita una deploy key o token para el `git fetch`.
+
 ## Backups
 - Automáticos: uno al arrancar y uno cada 24 h en `data/backups/` (últimos 30, cada uno
   verificado con `PRAGMA integrity_check`).
