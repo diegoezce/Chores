@@ -214,3 +214,17 @@ def test_mejor_racha_se_conserva(conn, cfg):
 
 def test_racha_cero_si_no_hay_nada(conn, cfg):
     assert points.racha(conn, cfg, "pili", LUNES) == {"actual": 0, "mejor": 0}
+
+
+def test_resumen_mes_porcentaje_sobre_el_maximo(conn, cfg):
+    hoy = date(2026, 10, 20)
+    assert points.resumen_mes(conn, cfg, "pili", hoy)["pct"] == 0
+    assert points.puntos_maximos(cfg, "pili", date(2026, 10, 1), date(2026, 10, 31)) == 1480
+    assert points.puntos_maximos(cfg, "pili", LUNES, DOM) == 330
+    hacer_todo(conn, cfg, "pili", LUNES, hoy)  # 4 tareas + bonus = 60
+    marcar(conn, cfg, "pili", hoy, "alimentar-a-moana", True, hoy)  # +10
+    r = points.resumen_mes(conn, cfg, "pili", hoy)
+    assert r["puntos"] == 70 and r["maximo"] == 1480 and r["pct"] == 4.7
+    assert r["pct_hasta_hoy"] == round(100 * 70 / points.puntos_maximos(cfg, "pili", date(2026, 10, 1), hoy), 1)
+    # puntos de otro mes no cuentan
+    assert points.resumen_mes(conn, cfg, "pili", date(2026, 11, 3))["puntos"] == 0

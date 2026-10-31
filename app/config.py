@@ -49,6 +49,7 @@ class Config:
     def __init__(self, data: dict):
         self.puntos_tarea = int(data.get("puntos_por_tarea", 10))
         self.puntos_dia = int(data.get("puntos_dia_completo", 20))
+        self.minimo_premio = float(data.get("premio_minimo_pct", 50))
         self.chicas = {
             cid: Chica(cid, c["nombre"], c.get("emoji", "⭐"), c.get("color", "#333"), c.get("fondo", "#eee"))
             for cid, c in data["chicas"].items()

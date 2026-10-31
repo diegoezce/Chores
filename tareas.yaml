@@ -4,6 +4,8 @@
 
 puntos_por_tarea: 10
 puntos_dia_completo: 20
+# % mínimo de los puntos posibles del mes para tener premio (se ve en /padres).
+premio_minimo_pct: 50
 
 chicas:
   pili:  { nombre: Pili,  emoji: "🦄", color: "#c2185b", fondo: "#fce4f1" }

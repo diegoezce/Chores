@@ -111,6 +111,30 @@ def puntos_desde(conn, chica: str, desde: date) -> int:
     return a + b
 
 
+def puntos_maximos(cfg: Config, chica: str, desde: date, hasta: date) -> int:
+    """Lo máximo que se podía ganar entre dos fechas (inclusive), con la config actual."""
+    m, d = 0, desde
+    while d <= hasta:
+        n = len(cfg.tareas(chica, d))
+        m += n * cfg.puntos_tarea + (cfg.puntos_dia if n else 0)
+        d += timedelta(days=1)
+    return m
+
+
+def resumen_mes(conn, cfg: Config, chica: str, hoy: date) -> dict:
+    """Puntos del mes en curso y % sobre el máximo posible (del mes entero y hasta hoy)."""
+    ini = hoy.replace(day=1)
+    fin = (ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    d0, d1 = db.iso(ini), db.iso(fin)
+    a = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM completadas WHERE chica=? AND dia BETWEEN ? AND ?", (chica, d0, d1)).fetchone()["s"]
+    b = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM bonus WHERE chica=? AND dia BETWEEN ? AND ?", (chica, d0, d1)).fetchone()["s"]
+    ganados = a + b
+    max_mes, max_hoy = puntos_maximos(cfg, chica, ini, fin), puntos_maximos(cfg, chica, ini, hoy)
+    pct = lambda x, m: round(100 * x / m, 1) if m else 0.0
+    return {"puntos": ganados, "maximo": max_mes, "maximo_hasta_hoy": max_hoy,
+            "pct": pct(ganados, max_mes), "pct_hasta_hoy": pct(ganados, max_hoy)}
+
+
 def _dias_completos(conn, chica: str) -> set[str]:
     return {r["dia"] for r in conn.execute("SELECT dia FROM bonus WHERE chica=?", (chica,))}
 

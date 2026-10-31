@@ -207,8 +207,9 @@ def resumen(conn=Depends(conn_dep)):
             d = lunes + timedelta(days=i)
             st = _estado_dia(conn, cid, d)
             dias.append({**st, "futuro": d > h})
-        out.append({**_resumen_chica(conn, cid), "dias": dias})
-    return {"hoy": db.iso(h), "chicas": out}
+        mes = points.resumen_mes(conn, cfg, cid, h)
+        out.append({**_resumen_chica(conn, cid), "dias": dias, "mes": {**mes, "premio": mes["pct"] >= cfg.minimo_premio}})
+    return {"hoy": db.iso(h), "minimo_premio": cfg.minimo_premio, "chicas": out}
 
 
 @app.get("/api/padres/dia", dependencies=[Depends(requiere_padre)])

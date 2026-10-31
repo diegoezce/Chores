@@ -58,6 +58,11 @@ async function main() {
           <div class="stat"><b>${c.racha.actual}</b>racha 🔥</div>
           <div class="stat"><b>${c.racha.mejor}</b>mejor racha</div>
         </div>
+        <div class="stats mes">
+          <div class="stat"><b>${c.mes.puntos} / ${c.mes.maximo}</b>puntos del mes</div>
+          <div class="stat"><b>${c.mes.pct}%</b>del mes (${c.mes.pct_hasta_hoy}% hasta hoy)</div>
+          <div class="stat"><b>${c.mes.premio ? "✅ Con premio" : "⏳ Sin premio"}</b>mínimo ${r.minimo_premio}%</div>
+        </div>
         <div class="days">${c.dias.map((d) => {
           const cls = d.futuro ? "fut" : !d.total_tareas ? "libre" : d.completo ? "ok" : d.hechas ? "partial" : "";
           return `<button class="${cls}" data-c="${c.id}" data-f="${d.fecha}">${d.dia_nombre.slice(0, 3)}<b>${d.total_tareas ? d.hechas + "/" + d.total_tareas : "—"}</b>${fl(d.fecha)}</button>`;

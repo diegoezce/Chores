@@ -152,3 +152,9 @@ def test_padres_agregan_y_quitan_tareas_sin_tocar_el_pasado(client):
     assert client.get("/api/chicas/pili").json()["puntos"] == 70  # puntos ganados se mantienen
     assert "Sacar la basura" not in [t["texto"] for t in client.get("/api/chicas/pili").json()["dia"]["tareas"]]
     assert client.delete(f"/api/padres/tareas/{tid}").status_code == 404
+
+
+def test_resumen_padres_incluye_mes_y_premio(client):
+    client.post("/api/padres/login", json={"pin": "4321"})
+    m = client.get("/api/padres/resumen").json()
+    assert m["minimo_premio"] == 50 and m["chicas"][0]["mes"]["pct"] == 0 and not m["chicas"][0]["mes"]["premio"]
