@@ -158,3 +158,13 @@ def test_resumen_padres_incluye_mes_y_premio(client):
     client.post("/api/padres/login", json={"pin": "4321"})
     m = client.get("/api/padres/resumen").json()
     assert m["minimo_premio"] == 50 and m["chicas"][0]["mes"]["pct"] == 0 and not m["chicas"][0]["mes"]["premio"]
+
+
+def test_premio_mensual_configurable(client):
+    assert client.put("/api/padres/premio", json={"monto": 1}).status_code == 401
+    client.post("/api/padres/login", json={"pin": "4321"})
+    assert client.get("/api/padres/resumen").json()["premio_mensual"] == 0
+    for malo in (-5, "mucho", 1.5, True, None):
+        assert client.put("/api/padres/premio", json={"monto": malo}).status_code == 400
+    assert client.put("/api/padres/premio", json={"monto": 60000}).status_code == 200
+    assert client.get("/api/padres/resumen").json()["premio_mensual"] == 60000

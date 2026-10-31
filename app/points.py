@@ -135,6 +135,13 @@ def resumen_mes(conn, cfg: Config, chica: str, hoy: date) -> dict:
             "pct": pct(ganados, max_mes), "pct_hasta_hoy": pct(ganados, max_hoy)}
 
 
+def monto_premio(premio_total: int, mes: dict, minimo_pct: float) -> int:
+    """Premio proporcional al % del mes (60% de los puntos = 60% del premio); 0 si no llega al mínimo."""
+    if not mes["maximo"] or mes["pct"] < minimo_pct:
+        return 0
+    return round(premio_total * min(mes["puntos"], mes["maximo"]) / mes["maximo"])
+
+
 def _dias_completos(conn, chica: str) -> set[str]:
     return {r["dia"] for r in conn.execute("SELECT dia FROM bonus WHERE chica=?", (chica,))}
 

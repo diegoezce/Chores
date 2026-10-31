@@ -221,8 +221,23 @@ def resumen(conn=Depends(conn_dep)):
             st = _estado_dia(conn, cid, d)
             dias.append({**st, "futuro": d > h})
         mes = points.resumen_mes(conn, cfg, cid, h)
-        out.append({**_resumen_chica(conn, cid), "dias": dias, "mes": {**mes, "premio": mes["pct"] >= cfg.minimo_premio}})
-    return {"hoy": db.iso(h), "minimo_premio": cfg.minimo_premio, "chicas": out}
+        con_premio = mes["pct"] >= cfg.minimo_premio
+        out.append({**_resumen_chica(conn, cid), "dias": dias,
+                    "mes": {**mes, "premio": con_premio, "premio_monto": points.monto_premio(premio_mensual(conn), mes, cfg.minimo_premio)}})
+    return {"hoy": db.iso(h), "minimo_premio": cfg.minimo_premio, "premio_mensual": premio_mensual(conn), "chicas": out}
+
+
+def premio_mensual(conn) -> int:
+    return int(db.get_meta(conn, "premio_mensual", "0") or 0)
+
+
+@app.put("/api/padres/premio", dependencies=[Depends(requiere_padre)])
+def fijar_premio(body: dict = Body(...), conn=Depends(conn_dep)):
+    monto = body.get("monto")
+    if not isinstance(monto, int) or isinstance(monto, bool) or not 0 <= monto <= 100_000_000:
+        raise HTTPException(400, "El premio tiene que ser un número entero (0 o más)")
+    db.set_meta(conn, "premio_mensual", str(monto))
+    return {"premio_mensual": monto}
 
 
 @app.get("/api/padres/dia", dependencies=[Depends(requiere_padre)])

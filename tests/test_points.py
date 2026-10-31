@@ -228,3 +228,12 @@ def test_resumen_mes_porcentaje_sobre_el_maximo(conn, cfg):
     assert r["pct_hasta_hoy"] == round(100 * 70 / points.puntos_maximos(cfg, "pili", date(2026, 10, 1), hoy), 1)
     # puntos de otro mes no cuentan
     assert points.resumen_mes(conn, cfg, "pili", date(2026, 11, 3))["puntos"] == 0
+
+
+def test_monto_premio_proporcional_con_minimo():
+    mes = lambda p, m=1000: {"puntos": p, "maximo": m, "pct": round(100 * p / m, 1) if m else 0.0}
+    assert points.monto_premio(60000, mes(1000), 50) == 60000
+    assert points.monto_premio(60000, mes(600), 50) == 36000  # 60% -> 60% del premio
+    assert points.monto_premio(60000, mes(499), 50) == 0      # debajo del mínimo
+    assert points.monto_premio(60000, mes(300), 0) == 18000   # sin mínimo
+    assert points.monto_premio(60000, mes(0, 0), 0) == 0

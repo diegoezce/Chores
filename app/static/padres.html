@@ -83,7 +83,7 @@ async function main() {
         <div class="stats mes">
           <div class="stat"><b>${c.mes.puntos} / ${c.mes.maximo}</b>puntos del mes</div>
           <div class="stat"><b>${c.mes.pct}%</b>del mes (${c.mes.pct_hasta_hoy}% hasta hoy)</div>
-          <div class="stat"><b>${c.mes.premio ? "✅ Con premio" : "⏳ Sin premio"}</b>mínimo ${r.minimo_premio}%</div>
+          <div class="stat"><b>${c.mes.premio ? "✅ $" + c.mes.premio_monto.toLocaleString("es-AR") : "⏳ Sin premio"}</b>${c.mes.premio ? "premio del mes" : "mínimo " + r.minimo_premio + "%"}</div>
         </div>
         <div class="days">${c.dias.map((d) => {
           const cls = d.futuro ? "fut" : !d.total_tareas ? "libre" : d.completo ? "ok" : d.hechas ? "partial" : "";
@@ -91,6 +91,10 @@ async function main() {
         }).join("")}</div>
       </div>`).join("")}
     <div id="editor"></div>
+    <div class="editor"><h3>🏆 Premio mensual</h3>
+      <p><small>Monto si hacen el 100% del mes. Con menos, cobran la parte proporcional (60% de los puntos = 60% del premio)${r.minimo_premio ? "; debajo de " + r.minimo_premio + "% no hay premio" : ""}.</small></p>
+      <div class="row"><input id="pm" type="number" inputmode="numeric" min="0" step="1" value="${r.premio_mensual}" placeholder="Monto en $"><button class="primary" id="pg">Guardar</button></div>
+    </div>
     <div class="editor"><h3>➕ Agregar tarea</h3>
       <div class="row"><select id="nc" class="secondary">${r.chicas.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join("")}</select>
       <input id="nt" maxlength="80" placeholder="Ej: Sacar la basura"></div>
@@ -115,6 +119,11 @@ async function main() {
     if (!confirm("¿Quitar esta tarea desde hoy? Los puntos ya ganados se mantienen.")) return;
     try { await api("/api/padres/tareas/" + b.dataset.q, { method: "DELETE" }); toast("Tarea quitada"); main(); } catch (e) { toast(e.message, true); }
   }));
+  $("#pg").onclick = async () => {
+    const monto = parseInt($("#pm").value, 10);
+    try { await api("/api/padres/premio", { method: "PUT", body: JSON.stringify({ monto: isNaN(monto) ? -1 : monto }) }); toast("Premio guardado ✅"); main(); }
+    catch (e) { toast(e.message, true); }
+  };
   $("#eg").onclick = () => abrir($("#ec").value, $("#ef").value);
   $("#bk").onclick = async () => { try { const x = await api("/api/padres/backup", { method: "POST" }); toast("Backup listo: " + x.archivo); } catch (e) { toast(e.message, true); } };
   if (editando) abrir(editando.c, editando.f, true);
