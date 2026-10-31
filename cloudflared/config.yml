@@ -1,0 +1,7 @@
+tunnel: ca865c6d-ba5c-4a3c-bc40-d73d17397cdb
+credentials-file: /etc/cloudflared/ca865c6d-ba5c-4a3c-bc40-d73d17397cdb.json
+
+ingress:
+  - hostname: chores.sparkio.me
+    service: http://chores:8000
+  - service: http_status:404

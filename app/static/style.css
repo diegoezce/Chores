@@ -117,6 +117,18 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .p-wrap h1 { margin: 0 0 4px; font-size: 1.6rem; }
 .p-wrap .lead { color: var(--muted); margin: 0 0 18px; }
 .login { max-width: 320px; margin: 70px auto; text-align: center; }
+.pin-display {
+  font-size: 2rem; letter-spacing: .4em; text-align: center; padding: 14px 0 10px;
+  min-height: 56px; color: var(--ink);
+}
+.pin-pad {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 auto 16px; max-width: 320px;
+}
+.pin-key {
+  font-size: 1.8rem; font-weight: 700; padding: 22px 0; border-radius: 20px;
+  background: #f4f0fa; color: var(--ink); transition: transform .1s, background .1s;
+}
+.pin-key:active { background: var(--bg); transform: scale(.93); }
 .login input, .p-wrap input[type=date] { font: inherit; padding: 12px 14px; border-radius: 14px; border: 2px solid #ddd5ee; width: 100%; text-align: center; background: #fff; }
 .primary { background: #2f9e8f; color: #fff; font-weight: 800; padding: 12px 20px; border-radius: 14px; margin-top: 12px; width: 100%; }
 .secondary { background: #efeaf7; font-weight: 700; padding: 10px 16px; border-radius: 12px; }
@@ -141,4 +153,37 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .hist div { padding: 6px 0; border-bottom: 1px solid #f0ebf7; }
 .hist small { color: var(--muted); }
 .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 18px; }
+/* ---------- Emoji picker ---------- */
+.emo-btn {
+  font-size: 1.5rem; background: rgba(255,255,255,.22); border-radius: 50%;
+  width: 38px; height: 38px; display: grid; place-items: center; position: relative; flex: none;
+  transition: transform .15s;
+}
+.emo-btn:active { transform: scale(.88); }
+.emo-btn::after {
+  content: "✏️"; position: absolute; bottom: -3px; right: -4px;
+  font-size: .55rem; background: #fff; border-radius: 50%;
+  width: 14px; height: 14px; display: grid; place-items: center; line-height: 1;
+}
+.emo-overlay {
+  position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.45);
+  display: grid; place-items: center; animation: fadein .18s;
+}
+@keyframes fadein { from { opacity: 0; } }
+.emo-panel {
+  background: #fff; border-radius: 28px; padding: 24px 20px 16px;
+  max-width: 310px; width: 90%; text-align: center;
+  animation: popin .22s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes popin { from { transform: scale(.7); opacity: 0; } }
+.emo-panel p { margin: 0 0 16px; font-weight: 800; font-size: 1.1rem; color: var(--ink); }
+.emo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.emo-opt {
+  font-size: 2rem; border-radius: 16px; padding: 8px 0; background: #f4f0fa;
+  transition: transform .12s;
+}
+.emo-opt:active { transform: scale(.88); }
+.emo-opt.sel { background: var(--bg); outline: 3px solid var(--c); }
+.emo-cancel { color: var(--muted); font-size: .95rem; font-weight: 700; padding: 8px 20px; }
+
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01s !important; transition: none !important; } }
