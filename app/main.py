@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from . import db, points
 from .backup import hacer_backup, iniciar_backups_automaticos
 from .config import DIAS_LARGOS, cargar, slug
+from .router_v2 import router as router_v2
 
 STATIC = Path(__file__).parent / "static"
 TZ = ZoneInfo(os.environ.get("TZ", "America/Argentina/Buenos_Aires"))
@@ -79,6 +80,7 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="Tareas de la casa", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+app.include_router(router_v2)
 
 
 def _parse_dia(texto: str | None) -> date:

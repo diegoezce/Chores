@@ -142,6 +142,144 @@ def monto_premio(premio_total: int, mes: dict, minimo_pct: float) -> int:
     return round(premio_total * min(mes["puntos"], mes["maximo"]) / mes["maximo"])
 
 
+# ── v2: idéntica lógica, tablas completadas2/bonus2/eventos2 con hijo_id ──────
+
+def _hechas_v2(conn, hijo_id: int, dia: date) -> set[str]:
+    rows = conn.execute("SELECT tarea FROM completadas2 WHERE hijo_id=? AND dia=?", (hijo_id, db.iso(dia)))
+    return {r["tarea"] for r in rows}
+
+
+def dia_completo_v2(conn, hijo_id: int, dia: date, slugs_del_dia: set[str]) -> bool:
+    return bool(slugs_del_dia) and slugs_del_dia <= _hechas_v2(conn, hijo_id, dia)
+
+
+def puntos_del_dia_v2(conn, hijo_id: int, dia: date) -> int:
+    d = db.iso(dia)
+    a = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM completadas2 WHERE hijo_id=? AND dia=?", (hijo_id, d)).fetchone()["s"]
+    b = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM bonus2 WHERE hijo_id=? AND dia=?", (hijo_id, d)).fetchone()["s"]
+    return a + b
+
+
+def total_v2(conn, hijo_id: int) -> int:
+    a = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM completadas2 WHERE hijo_id=?", (hijo_id,)).fetchone()["s"]
+    b = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM bonus2 WHERE hijo_id=?", (hijo_id,)).fetchone()["s"]
+    return a + b
+
+
+def puntos_desde_v2(conn, hijo_id: int, desde: date) -> int:
+    d = db.iso(desde)
+    a = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM completadas2 WHERE hijo_id=? AND dia>=?", (hijo_id, d)).fetchone()["s"]
+    b = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM bonus2 WHERE hijo_id=? AND dia>=?", (hijo_id, d)).fetchone()["s"]
+    return a + b
+
+
+def marcar_v2(conn, hijo_id: int, dia: date, tarea_slug: str, hecho: bool,
+              quien: str, hoy: date, max_dias_atras: int | None,
+              puntos_tarea: int, puntos_dia: int, slugs_del_dia: set[str]) -> dict:
+    if dia > hoy:
+        raise ReglaError("futuro", "Todavía no podés marcar días que no llegaron")
+    if max_dias_atras is not None and (hoy - dia).days > max_dias_atras:
+        raise ReglaError("muy_viejo", "Ese día ya quedó muy atrás. Pedile ayuda a mamá o papá")
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    d = db.iso(dia)
+
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        existe = conn.execute(
+            "SELECT 1 FROM completadas2 WHERE hijo_id=? AND dia=? AND tarea=?", (hijo_id, d, tarea_slug)
+        ).fetchone() is not None
+        if hecho and tarea_slug not in slugs_del_dia:
+            raise ReglaError("tarea_invalida", "Esa tarea no está en la lista de ese día")
+        if not hecho and not existe and tarea_slug not in slugs_del_dia:
+            raise ReglaError("tarea_invalida", "Esa tarea no está en la lista de ese día")
+
+        cambio = False
+        if hecho and not existe:
+            conn.execute(
+                "INSERT INTO completadas2(hijo_id, dia, tarea, puntos, creado) VALUES(?,?,?,?,?)",
+                (hijo_id, d, tarea_slug, puntos_tarea, ahora),
+            )
+            cambio = True
+        elif not hecho and existe:
+            conn.execute("DELETE FROM completadas2 WHERE hijo_id=? AND dia=? AND tarea=?", (hijo_id, d, tarea_slug))
+            cambio = True
+
+        bonus_antes = conn.execute("SELECT 1 FROM bonus2 WHERE hijo_id=? AND dia=?", (hijo_id, d)).fetchone() is not None
+        if cambio:
+            completo = dia_completo_v2(conn, hijo_id, dia, slugs_del_dia)
+            if completo and not bonus_antes:
+                conn.execute("INSERT INTO bonus2(hijo_id, dia, puntos) VALUES(?,?,?)", (hijo_id, d, puntos_dia))
+            elif not completo and bonus_antes:
+                conn.execute("DELETE FROM bonus2 WHERE hijo_id=? AND dia=?", (hijo_id, d))
+            conn.execute(
+                "INSERT INTO eventos2(cuando, hijo_id, dia, tarea, accion, quien) VALUES(?,?,?,?,?,?)",
+                (ahora, hijo_id, d, tarea_slug, "marcar" if hecho else "desmarcar", quien),
+            )
+        bonus_despues = conn.execute("SELECT 1 FROM bonus2 WHERE hijo_id=? AND dia=?", (hijo_id, d)).fetchone() is not None
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return {
+        "cambio": cambio,
+        "bonus_ganado": bonus_despues and not bonus_antes,
+        "bonus_perdido": bonus_antes and not bonus_despues,
+    }
+
+
+def _dias_completos_v2(conn, hijo_id: int) -> set[str]:
+    return {r["dia"] for r in conn.execute("SELECT dia FROM bonus2 WHERE hijo_id=?", (hijo_id,))}
+
+
+def racha_v2(conn, hijo_id: int, hoy: date, get_slugs) -> dict:
+    completos = _dias_completos_v2(conn, hijo_id)
+    row = conn.execute("SELECT MIN(dia) d FROM completadas2 WHERE hijo_id=?", (hijo_id,)).fetchone()
+    inicio_d = date.fromisoformat(row["d"]) if row["d"] else hoy
+
+    actual, d = 0, hoy
+    while d >= inicio_d:
+        if db.iso(d) in completos:
+            actual += 1
+        elif d != hoy and get_slugs(d):
+            break
+        d -= timedelta(days=1)
+
+    mejor = corrida = 0
+    d = inicio_d
+    while d <= hoy:
+        if db.iso(d) in completos:
+            corrida += 1
+            mejor = max(mejor, corrida)
+        elif get_slugs(d) and d != hoy:
+            corrida = 0
+        d += timedelta(days=1)
+    return {"actual": actual, "mejor": max(mejor, actual)}
+
+
+def _puntos_max_v2(puntos_tarea: int, puntos_dia: int, get_slugs, desde: date, hasta: date) -> int:
+    m, d = 0, desde
+    while d <= hasta:
+        n = len(get_slugs(d))
+        m += n * puntos_tarea + (puntos_dia if n else 0)
+        d += timedelta(days=1)
+    return m
+
+
+def resumen_mes_v2(conn, hijo_id: int, hoy: date, get_slugs,
+                   puntos_tarea: int, puntos_dia: int) -> dict:
+    ini = hoy.replace(day=1)
+    fin = (ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    d0, d1 = db.iso(ini), db.iso(fin)
+    a = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM completadas2 WHERE hijo_id=? AND dia BETWEEN ? AND ?", (hijo_id, d0, d1)).fetchone()["s"]
+    b = conn.execute("SELECT COALESCE(SUM(puntos),0) s FROM bonus2 WHERE hijo_id=? AND dia BETWEEN ? AND ?", (hijo_id, d0, d1)).fetchone()["s"]
+    ganados = a + b
+    max_mes = _puntos_max_v2(puntos_tarea, puntos_dia, get_slugs, ini, fin)
+    max_hoy = _puntos_max_v2(puntos_tarea, puntos_dia, get_slugs, ini, hoy)
+    pct = lambda x, m: round(100 * x / m, 1) if m else 0.0
+    return {"puntos": ganados, "maximo": max_mes, "maximo_hasta_hoy": max_hoy,
+            "pct": pct(ganados, max_mes), "pct_hasta_hoy": pct(ganados, max_hoy)}
+
+
 def _dias_completos(conn, chica: str) -> set[str]:
     return {r["dia"] for r in conn.execute("SELECT dia FROM bonus WHERE chica=?", (chica,))}
 

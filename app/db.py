@@ -27,6 +27,90 @@ CREATE TABLE IF NOT EXISTS eventos (
     chica TEXT NOT NULL, dia TEXT NOT NULL, tarea TEXT NOT NULL,
     accion TEXT NOT NULL, quien TEXT NOT NULL
 );
+
+-- ── v2: multi-familia ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS familias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
+    idioma TEXT NOT NULL DEFAULT 'es',
+    puntos_tarea INTEGER NOT NULL DEFAULT 10,
+    puntos_dia INTEGER NOT NULL DEFAULT 20,
+    minimo_premio_pct REAL NOT NULL DEFAULT 50,
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    familia_id INTEGER NOT NULL REFERENCES familias(id),
+    nombre TEXT NOT NULL,
+    email TEXT UNIQUE,
+    password_hash TEXT,
+    apple_sub TEXT UNIQUE,
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expira TEXT NOT NULL,
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hijos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    familia_id INTEGER NOT NULL REFERENCES familias(id),
+    nombre TEXT NOT NULL,
+    emoji TEXT NOT NULL DEFAULT '⭐',
+    color TEXT NOT NULL DEFAULT '#333',
+    fondo TEXT NOT NULL DEFAULT '#eee',
+    creado TEXT NOT NULL
+);
+-- Token de sesión para el dispositivo propio del hijo (vinculado con QR).
+CREATE TABLE IF NOT EXISTS hijo_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hijo_id INTEGER NOT NULL REFERENCES hijos(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expira TEXT NOT NULL,
+    creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tareas_def (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    familia_id INTEGER NOT NULL REFERENCES familias(id),
+    texto TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    UNIQUE(familia_id, slug)
+);
+-- Qué tarea le toca a qué hijo qué días. `hasta` NULL = vigente.
+CREATE TABLE IF NOT EXISTS asignaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hijo_id INTEGER NOT NULL REFERENCES hijos(id),
+    tarea_id INTEGER NOT NULL REFERENCES tareas_def(id),
+    dias TEXT NOT NULL,
+    desde TEXT NOT NULL,
+    hasta TEXT
+);
+CREATE TABLE IF NOT EXISTS completadas2 (
+    hijo_id INTEGER NOT NULL REFERENCES hijos(id),
+    dia TEXT NOT NULL,
+    tarea TEXT NOT NULL,
+    puntos INTEGER NOT NULL,
+    creado TEXT NOT NULL,
+    PRIMARY KEY (hijo_id, dia, tarea)
+);
+CREATE TABLE IF NOT EXISTS bonus2 (
+    hijo_id INTEGER NOT NULL REFERENCES hijos(id),
+    dia TEXT NOT NULL,
+    puntos INTEGER NOT NULL,
+    PRIMARY KEY (hijo_id, dia)
+);
+CREATE TABLE IF NOT EXISTS eventos2 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cuando TEXT NOT NULL,
+    hijo_id INTEGER NOT NULL REFERENCES hijos(id),
+    dia TEXT NOT NULL,
+    tarea TEXT NOT NULL,
+    accion TEXT NOT NULL,
+    quien TEXT NOT NULL
+);
 """
 
 

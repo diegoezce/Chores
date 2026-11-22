@@ -73,14 +73,17 @@ administrado, Postgres en vez de SQLite, backups automáticos, rate limiting y l
 | 4 | Pulido para App Store: borrado de cuenta, privacidad, localización, monetización |
 | 5 | Notificaciones, widget, modo offline |
 
-## 6. Decisiones abiertas
+## 6. Decisiones
 
-1. **Uso por los hijos:** dispositivo del padre, dispositivo propio vinculado, o ambos
-   (recomendado: ambos).
-2. **Monetización:** gratis, freemium con suscripción, o pago único.
-3. **Hosting:** Fly.io o Render con Postgres administrado (rápido); evitar Vercel para un
-   backend FastAPI con base persistente.
-4. **Mercado e idiomas:** solo Argentina/español o global con inglés.
+1. **Uso por los hijos:** ambos — dispositivo del padre (selector de perfil) y dispositivo
+   propio vinculado con QR/código generado por el padre.
+2. **Monetización:** pago único.
+3. **Hosting:** mini PC con túnel para fases 1–3 (igual que hoy). En fase 4 (App Store
+   público) se migra a Fly.io: 1 máquina shared (1 core, 256 MB RAM), SQLite sobre volumen
+   persistente, backups continuos con Litestream a Backblaze B2, ~$3.70/mes. El setup de
+   Fly.io se documenta y prepara antes de la migración para que sea un corte limpio.
+4. **Mercado e idiomas:** Argentina / español en la v1. Inglés y mercado global en versión
+   posterior.
 
 ## Notas
 
