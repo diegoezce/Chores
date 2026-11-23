@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager
 
 from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, points
@@ -336,6 +336,54 @@ def favicon():
 @app.get("/padres")
 def padres_page():
     return FileResponse(STATIC / "padres.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/soporte", response_class=HTMLResponse, include_in_schema=False)
+def privacy():
+    return HTMLResponse("""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Política de Privacidad — Chores</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 680px; margin: 48px auto; padding: 0 24px; color: #1c1c1e; line-height: 1.6; }
+    h1 { font-size: 1.6rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+    p, ul { font-size: 0.95rem; color: #3a3a3c; } ul { padding-left: 1.4rem; }
+    footer { margin-top: 3rem; font-size: 0.8rem; color: #8e8e93; }
+  </style>
+</head>
+<body>
+  <h1>Política de Privacidad — Chores</h1>
+  <p><em>Última actualización: noviembre 2026</em></p>
+  <p>Chores es una aplicación familiar diseñada para uso privado dentro del hogar.</p>
+
+  <h2>Datos que recolectamos</h2>
+  <ul>
+    <li>Dirección de correo electrónico del padre o madre administrador/a, utilizada únicamente para autenticación.</li>
+    <li>Nombre y emoji de cada hijo, ingresados por el administrador para identificar perfiles dentro de la app.</li>
+    <li>Registro de tareas completadas y puntos acumulados por cada hijo.</li>
+  </ul>
+
+  <h2>Cómo usamos los datos</h2>
+  <p>Todos los datos se almacenan exclusivamente en el servidor propio de la familia (self-hosted). No se transmiten a servidores de terceros, no se comparten con ninguna empresa externa y no se utilizan con fines comerciales o publicitarios.</p>
+
+  <h2>Terceros</h2>
+  <p>Chores no integra servicios de analítica, publicidad, redes sociales ni ningún SDK de terceros que recolecte datos de los usuarios.</p>
+
+  <h2>Seguridad</h2>
+  <p>La comunicación entre la app y el servidor se realiza mediante HTTPS. Los tokens de sesión se almacenan de forma segura en el Keychain del dispositivo.</p>
+
+  <h2>Menores de edad</h2>
+  <p>La app está diseñada para ser utilizada por menores de edad bajo la supervisión directa de sus padres o tutores, quienes son los únicos administradores de los datos.</p>
+
+  <h2>Contacto</h2>
+  <p>Para consultas sobre privacidad: <a href="mailto:diegoezce@gmail.com">diegoezce@gmail.com</a></p>
+
+  <footer>Chores · Uso familiar y privado</footer>
+</body>
+</html>""", status_code=200)
 
 
 app.mount("/", StaticFiles(directory=STATIC), name="static")
